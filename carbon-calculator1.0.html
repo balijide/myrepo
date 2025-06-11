@@ -1,0 +1,1529 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>船舶碳排放合规计算工具</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+      tailwind.config = {
+          darkMode: 'class', // 启用暗色模式
+          theme: {
+              extend: {
+                  colors: {
+                      primary: '#165DFF',
+                      secondary: '#36CFC9',
+                      accent: '#FF7D00',
+                      neutral: '#F5F7FA',
+                      dark: '#1D2129',
+                  },
+                  fontFamily: {
+                      inter: ['Inter', 'sans-serif'],
+                  },
+              }
+          }
+      }
+  </script>
+  <style>
+    .card-shadow {
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+    .hover-scale:hover {
+      transform: scale(1.02);
+      transition: all 0.2s ease-in-out;
+    }
+    .input-focus:focus {
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+      border-color: #3b82f6;
+    }
+    .text-primary { color: #2563eb; }
+    .bg-primary { background-color: #2563eb; }
+    .hover\:bg-primary\/90:hover { background-color: #1d4ed8; }
+    .hover\:shadow-primary\/30:hover { box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3); }
+
+    /* 亮色主题样式 */
+    .light-theme {
+        background-color: #f5f7fa;
+        color: #1d2129;
+    }
+
+    /* 暗色主题样式 */
+    .dark-theme {
+        background-color: #1d2129;
+        color: #f5f7fa;
+    }
+
+    #year - range - label {
+        font-size: 100px;
+    }
+  </style>
+</head>
+
+<body id="body" class="bg-gray-100 text-gray-900 min-h-screen flex flex-col dark:bg-gray-900 dark:text-gray-900">
+      <!-- 导航栏 -->
+    <nav class="bg-white shadow-md sticky top-0 z-50 transition-all duration-300">
+        <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <i class="fa-solid fa-ship text-primary text-2xl"></i>
+                <h1 class="text-xl font-bold gradient-text">船舶碳排放合规计算器</h1>
+            </div>
+            <div class="flex items-center space-x-4">
+                <button id="theme-toggle" class="p-2 rounded-full hover:bg-neutral transition-colors">
+                    <i class="fa-solid fa-moon"></i>
+                </button>
+                <button id="help-button" class="p-2 rounded-full hover:bg-neutral transition-colors">
+                    <i class="fa-solid fa-question-circle"></i>
+                </button>
+            </div>
+        </div>
+    </nav>
+  <main class="flex-grow container mx-auto px-4 py-6">
+    <!-- 欢迎卡片 -->
+    <h2 class="text-[clamp(1.5rem,3vw,2.5rem)] font-bold mb-4">船舶碳排放合规计算工具</h2>
+    <div class="bg-white rounded-xl p-6 mb-8 card-shadow hover-scale">
+        <p class="text-gray-600 mb-6">本工具基于IMO GFI标准，帮助船舶运营商计算碳排放合规成本，优化燃料配比策略，实现节能减排目标。</p>
+
+        <div class="flex gap-4 justify-start items-center">
+            <button id="start-calculation" class="bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-lg font-medium transition-all shadow-lg hover:shadow-primary/30 flex items-center order-0">
+                <i class="fa-solid fa-calculator mr-2"></i> 开始计算
+            </button>
+
+            <button id="reset-all" class="bg-white border border-gray-300 hover:border-primary text-dark px-6 py-3 rounded-lg font-medium transition-all shadow-md hover:shadow-sm flex items-center order-0">
+                <i class="fa-solid fa-arrows-rotate mr-2"></i> 重置参数
+            </button>
+
+            <div class="flex items-center gap-2">
+                <label class="block text-sm font-medium text-gray-700">起始年份：</label>
+                <div class="relative">
+                    <select id="start-year" class="px-3 py-2 pr-8 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary appearance-none">
+                        <!-- 2028-2050 options will be populated by JS -->
+                    </select>
+                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700 arrow-container">
+                        <i class="fa-solid fa-chevron-down text-xs"></i>
+                    </div>
+                </div>
+                <label class="block text-sm font-medium text-gray-700">结束年份：</label>
+                <div class="relative">
+                    <select id="end-year" class="px-3 py-2 pr-8 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary appearance-none">
+                        <!-- 2028-2050 options will be populated by JS -->
+                    </select>
+                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700 arrow-container">
+                        <i class="fa-solid fa-chevron-down text-xs"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 输入参数区域 -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+      <!-- 政策参数卡片 - 移除了Tier选择 -->
+      <div class="bg-white rounded-xl p-6 card-shadow hover-scale">
+        <h3 class="text-xl font-semibold mb-4 flex items-center">
+          <i class="fa-solid fa-gavel text-primary mr-2"></i> 政策参数
+        </h3>
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">总能耗 (GJ/年)</label>
+            <input type="number" id="total-energy" value="1000" min="0" step="1" class="w-full px-3 py-2 border border-gray-300 rounded-md input-focus">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">GFI 2008 (gCO₂eq/MJ)</label>
+            <input type="number" id="gfi-2008" value="93.3" min="0" step="0.1" class="w-full px-3 py-2 border border-gray-300 rounded-md input-focus">
+          </div>
+        </div>
+      </div>
+
+      <!-- 燃料参数卡片 -->
+      <div class="bg-white rounded-xl p-6 card-shadow hover-scale">
+        <h3 class="text-xl font-semibold mb-4 flex items-center">
+          <i class="fa-solid fa-gas-pump text-primary mr-2"></i> 燃料参数
+        </h3>
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">燃料类型</label>
+              <select id="fuel-type" class="w-full px-3 py-2 border border-gray-300 rounded-md input-focus">
+                <!-- 传统燃料 -->
+                <option value="HFO">HFO (重油)</option>
+                <option value="VLSFO">VLSFO (超低硫燃油)</option>
+                <option value="MDO">MDO (船用柴油)</option>
+                <option value="LNG">LNG (液化天然气)</option>
+
+                <!-- ZNZ 燃料（奖励系数自动应用） -->
+                <option value="Green Methanol">Green Methanol (绿色甲醇)</option>
+                <option value="Ammonia">Ammonia (氨燃料)</option>
+                <option value="Synthetic LNG">Synthetic LNG (合成LNG)</option>
+                <option value="Bio-diesel">Bio-diesel (生物柴油)</option>
+                <option value="Bio-methane">Bio-methane (生物甲烷)</option>
+                <option value="Other ZNZ">Other ZNZ（自定义近零碳燃料）</option>
+              </select>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">份额 (%)</label>
+              <input type="number" id="fuel-share" value="40" min="0" max="100" step="1" class="w-full px-3 py-2 border border-gray-300 rounded-md input-focus">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">低位热值 (MJ/kg)</label>
+              <input type="number" id="fuel-lhv" value="40.4" min="0" step="0.1" class="w-full px-3 py-2 border border-gray-300 rounded-md input-focus">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">排放因子 (gCO₂eq/MJ)</label>
+              <input type="number" id="fuel-ef" value="94.0" min="0" step="0.1" class="w-full px-3 py-2 border border-gray-300 rounded-md input-focus">
+            </div>
+          </div>
+          <button id="add-fuel" class="w-full bg-primary hover:bg-primary/90 text-white py-2 rounded-lg font-medium">
+            <i class="fa-solid fa-plus mr-1"></i> 添加燃料
+          </button>
+        </div>
+      </div>
+
+      <!-- 其他参数卡片 -->
+      <div class="bg-white rounded-xl p-6 card-shadow hover-scale">
+          <h3 class="text-xl font-semibold mb-4 flex items-center">
+          <i class="fa-solid fa-sliders text-primary mr-2"></i> 其他参数
+        </h3>
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">ZNZ燃料份额 (%)</label>
+            <input type="number" id="znz-share" value="0" min="0" max="100" step="1" class="w-full px-3 py-2 border border-gray-300 rounded-md input-focus" readonly>
+            <div class="text-xs text-yellow-600 mt-1" id="znz-threshold-hint" style="display: none;">
+              注意：ZNZ燃料份额需≥5%才能应用奖励机制
+            </div>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">自定义ZNZ燃料碳强度 (gCO₂eq/MJ)</label>
+            <input type="number" id="znz-intensity" value="10" min="0" step="0.1" class="w-full px-3 py-2 border border-gray-300 rounded-md input-focus">
+          </div>
+          <div class="flex items-center justify-between">
+            <label class="text-sm font-medium text-gray-700">启用 SU 抵扣 DU</label>
+            <input type="checkbox" id="enable-su-to-du" class="h-4 w-4 text-primary border-gray-300 rounded">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 燃料配比表格 -->
+    <div class="bg-white rounded-xl p-6 mb-8 card-shadow hover-scale">
+      <h3 class="text-xl font-semibold mb-4 flex items-center">
+        <i class="fa-solid fa-table text-primary mr-2"></i> 燃料配比
+      </h3>
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500">燃料类型</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500">份额 (%)</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500">低位热值</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500">排放因子</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500">奖励倍数</th>
+              <th class="px-6 py-3 text-right text-xs font-medium text-gray-500">操作</th>
+            </tr>
+          </thead>
+          <tbody id="fuel-mix-table" class="bg-white divide-y divide-gray-200">
+            <!-- JavaScript 将动态填充此表格 -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 计算结果摘要 + 图表 -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+      <!-- 结果摘要卡片 - 修改后 -->
+      <div class="bg-white rounded-xl p-6 card-shadow">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-xl font-semibold flex items-center">
+            <i class="fa-solid fa-chart-pie text-primary mr-2"></i> 计算结果摘要
+          </h3>
+          <div class="flex items-center">
+            <label class="block text-sm font-medium text-gray-700 mr-2">选择年份:</label>
+            <select id="summary-year" class="px-3 py-1 border border-gray-300 rounded-md input-focus">
+              <!-- Will be populated by JS -->
+            </select>
+          </div>
+        </div>
+        <div class="space-y-6">
+          <div class="grid grid-cols-2 gap-4">
+            <div class="bg-blue-50 rounded-lg p-4">
+              <p class="text-sm text-gray-600 mb-1">Tier 1 目标强度</p>
+              <p id="tier1-intensity" class="text-2xl font-bold">待计算</p>
+            </div>
+            <div class="bg-green-50 rounded-lg p-4">
+              <p class="text-sm text-gray-600 mb-1">Tier 2 目标强度</p>
+              <p id="tier2-intensity" class="text-2xl font-bold">待计算</p>
+            </div>
+          </div>
+          <div class="bg-purple-50 rounded-lg p-4">
+            <p class="text-sm text-gray-600 mb-1">实际强度</p>
+            <p id="actual-intensity" class="text-2xl font-bold">待计算</p>
+          </div>
+          <div class="bg-blue-50 rounded-lg p-4">
+            <p class="text-sm text-gray-600 mb-1">合规类型</p>
+            <p id="compliance-type-status" class="text-2xl font-bold">待计算</p>
+          </div>
+          <div class="bg-green-50 rounded-lg p-4">
+            <p class="text-sm text-gray-600 mb-1">DU/SU状态</p>
+            <p id="du-su-status" class="text-2xl font-bold">待计算</p>
+          </div>
+          <div class="bg-red-50 rounded-lg p-4">
+            <p class="text-sm text-gray-600 mb-1">合规缺口</p>
+            <p id="compliance-gap" class="text-2xl font-bold">待计算</p>
+          </div>
+          <div class="bg-orange-50 rounded-lg p-4">
+            <p class="text-sm text-gray-600 mb-1">合规成本</p>
+            <p id="compliance-cost" class="text-2xl font-bold">待计算</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右侧图表区域 -->
+      <div class="flex flex-col gap-6">
+        <!-- 碳排放趋势图表 -->
+        <div class="bg-white rounded-xl p-6 card-shadow">
+          <h3 class="text-xl font-semibold mb-4 flex items-center">
+            <i class="fa-solid fa-chart-line text-primary mr-2"></i> 碳排放趋势
+          </h3>
+          <div class="h-80">
+            <canvas id="emissionChart"></canvas>
+          </div>
+        </div>
+
+        <!-- 合规可视化图表 -->
+        <div class="bg-white rounded-xl p-6 mb-8 card-shadow hover-scale">
+          <h3 class="text-xl font-semibold mb-4 flex items-center">
+            <i class="fa-solid fa-chart-bar text-primary mr-2"></i> 合规可视化
+          </h3>
+          <div class="h-80">
+            <canvas id="complianceChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 年度预测表格 - 修改后 -->
+    <div class="bg-white rounded-xl p-6 mb-8 card-shadow">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-xl font-semibold flex items-center">
+          <i class="fa-solid fa-calendar text-primary mr-2"></i> 年度结果预测
+        </h3>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500">年份</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500">Tier 1</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500">Tier 2</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500">实际强度</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500">合规类型</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500">DU1需求</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500">DU2需求</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500">DU借用</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500">SU奖励</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500">年度成本</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500">累计成本</th>
+            </tr>
+          </thead>
+          <tbody id="yearly-results" class="bg-white divide-y divide-gray-200">
+            <!-- JS填充 -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 计算步骤与建议 -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+      <!-- 步骤 -->
+      <div class="bg-white rounded-xl p-6 card-shadow">
+        <h3 class="text-xl font-semibold mb-4 flex items-center">
+          <i class="fa-solid fa-calculator text-primary mr-2"></i> 详细计算步骤
+        </h3>
+        <div id="calculation-steps" class="space-y-4">
+          <!-- JS填充 -->
+        </div>
+      </div>
+
+      <!-- 建议 -->
+      <div class="bg-white rounded-xl p-6 card-shadow">
+        <h3 class="text-xl font-semibold mb-4 flex items-center">
+          <i class="fa-solid fa-lightbulb text-primary mr-2"></i> 分析建议
+        </h3>
+        <div id="recommendations" class="space-y-4">
+          <!-- JS填充 -->
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- 页脚 -->
+  <footer class="bg-dark text-white py-6">
+    <div class="container mx-auto px-4">
+      <div class="flex flex-col md:flex-row justify-between items-center">
+        <div class="mb-4 md:mb-0">
+          <div class="flex items-center space-x-2">
+            <i class="fa fa-ship text-primary text-xl"></i>
+            <span class="font-bold text-lg">船舶碳排放合规计算器</span>
+          </div>
+          <p class="text-gray-400 text-sm mt-1">基于IMO净零框架的碳排放合规评估工具</p>
+        </div>
+        <div class="text-gray-400 text-sm">
+          &copy; 2025 船舶碳排放合规计算器 | 所有权利保留
+        </div>
+      </div>
+    </div>
+  </footer>
+  <!-- 帮助模态框 -->
+    <div id="help-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+      <div id="modal-content" class="bg-white rounded-xl p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-xl font-bold text-dark">使用帮助</h2>
+          <button id="close-help" class="text-gray-500 hover:text-gray-700">
+            <i class="fa fa-times text-xl"></i>
+          </button>
+        </div>
+        <div class="space-y-4">
+          <div>
+            <h4 class="font-semibold text-primary">关于船舶碳排放合规计算器</h4>
+            <p class="text-gray-600">本工具基于IMO GFI标准，帮助船东和运营商评估其船舶碳排放合规性，计算碳减排目标和相关成本，支持制定低碳燃料策略。</p>
+          </div>
+
+          <div>
+            <h4 class="font-semibold text-primary">主要功能</h4>
+            <ul class="list-disc pl-5 space-y-1 text-gray-600">
+              <li>根据IMO MARPOL附则VI规定计算碳排放强度</li>
+              <li>评估不同燃料类型的减排效果</li>
+              <li>计算DU和SU补偿单位需求</li>
+              <li>预测未来年份的合规状态</li>
+              <li>生成碳排放趋势图表</li>
+              <li>提供减排策略建议</li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 class="font-semibold text-primary">使用指南</h4>
+            <ol class="list-decimal pl-5 space-y-2 text-gray-600">
+              <li>在"政策参数"部分选择Tier级别和设置总能耗</li>
+              <li>在"燃料参数"部分选择燃料类型并设置份额、低位热值和排放因子</li>
+              <li>点击"添加燃料"按钮将燃料添加到混合燃料列表</li>
+              <li>在"其他参数"部分设置ZNZ燃料相关参数</li>
+              <li>选择要分析的起始年份和结束年份(2028-2050)</li>
+              <li>点击"开始计算"按钮进行计算</li>
+              <li>查看结果摘要、图表和年度预测数据</li>
+              <li>根据分析建议调整参数并重新计算</li>
+            </ol>
+          </div>
+
+          <div>
+            <h4 class="font-semibold text-primary">SU(可持续单位)使用规则</h4>
+            <ul class="list-disc pl-5 space-y-1 text-gray-600">
+              <li>SU奖励会在船舶超额合规时自动获得</li>
+              <li>SU有效期为2年，逾期未使用的SU将自动失效</li>
+              <li>SU可以按1:1比例抵扣DU需求(需启用"SU抵扣DU"选项)</li>
+              <li>系统会自动优先使用最早获得的SU(FIFO原则)</li>
+              <li>SU奖励会产生负成本(收益)，在图表中以绿色显示</li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 class="font-semibold text-primary">术语解释</h4>
+            <ul class="list-disc pl-5 space-y-1 text-gray-600">
+              <li><strong>GFI 2008基准</strong>：国际海事组织设定的碳排放参考强度基准值</li>
+              <li><strong>Tier强度</strong>：根据所选Tier级别计算的碳排放强度要求</li>
+              <li><strong>实际强度</strong>：船舶当前的实际碳排放强度</li>
+              <li><strong>合规状态</strong>：船舶是否符合碳排放要求</li>
+              <li><strong>合规缺口</strong>：实际强度与Tier强度之间的差距</li>
+              <li><strong>合规成本</strong>：实现合规所需的经济成本(负值表示SU奖励收益)</li>
+              <li><strong>DU</strong>：Decarbonization Unit，脱碳单位，用于合规的补偿</li>
+              <li><strong>SU</strong>：Sustainability Unit，可持续性单位，用于合规的奖励</li>
+              <li><strong>DU1</strong>：第一层脱碳单位，用于轻度不合规情况</li>
+              <li><strong>DU2</strong>：第二层脱碳单位，用于严重不合规情况</li>
+              <li><strong>ZNZ燃料</strong>：Near-Zero Carbon Fuel，近零碳燃料</li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 class="font-semibold text-primary">数据说明</h4>
+            <ul class="list-disc pl-5 space-y-1 text-gray-600">
+              <li>所有计算基于IMO 2023年发布的减排系数</li>
+              <li>DU1默认价格为100美元/吨(2028-2030年)，之后每年增长5%</li>
+              <li>DU2默认价格为380美元/吨(2028-2030年)，之后每年增长5%</li>
+              <li>SU默认价格为100美元/吨(2028-2030年)，之后每年增长5%</li>
+              <li>ZNZ燃料份额≥5%时才能获得奖励倍数</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  <!-- JavaScript -->
+<script>
+  (function() {
+    const du1Prices = {};
+    const du2Prices = {};
+    const suPrices = {};
+    const suBank = {};
+    const duDebt = {};
+    const yearlyResults = [];
+
+    // 燃料类型数据（包含奖励倍数）
+    const fuelTypeData = {
+      "HFO": { lhv: 40.4, ef: 94.0, reward: 1.0 },
+      "VLSFO": { lhv: 40.2, ef: 93.8, reward: 1.0 },
+      "MDO": { lhv: 42.7, ef: 74.2, reward: 1.0 },
+      "LNG": { lhv: 50.0, ef: 64.0, reward: 1.0 },
+      "Green Methanol": { lhv: 19.9, ef: 15.0, reward: 1.35 },
+      "Ammonia": { lhv: 22.5, ef: 0.0, reward: 1.65 },
+      "Synthetic LNG": { lhv: 50.0, ef: 10.0, reward: 1.2 },
+      "Bio-diesel": { lhv: 38.9, ef: 40.0, reward: 1.1 },
+      "Bio-methane": { lhv: 55.5, ef: 20.0, reward: 1.45 },
+      "Other ZNZ": { lhv: 50.0, ef: 10.0, reward: 1.3 }
+    };
+
+    // 减排系数数据 (从2028年开始)
+    const reductionFactors = {
+      "2028": { tier1: 17, tier2: 4 },
+      "2029": { tier1: 19, tier2: 6 },
+      "2030": { tier1: 21, tier2: 8 },
+      "2031": { tier1: 25, tier2: 12.4 },
+      "2032": { tier1: 29.8, tier2: 16.8 },
+      "2033": { tier1: 34.2, tier2: 21.2 },
+      "2034": { tier1: 38.6, tier2: 25.6 },
+      "2035": { tier1: 43, tier2: 30 },
+      "2036": { tier1: 50, tier2: 37 },
+      "2037": { tier1: 57, tier2: 44 },
+      "2038": { tier1: 64, tier2: 51 },
+      "2039": { tier1: 71, tier2: 58 },
+      "2040": { tier1: 78, tier2: 65 },
+      "2041": { tier1: 81, tier2: 68 },
+      "2042": { tier1: 84, tier2: 71 },
+      "2043": { tier1: 87, tier2: 74 },
+      "2044": { tier1: 90, tier2: 77 },
+      "2045": { tier1: 93, tier2: 80 },
+      "2046": { tier1: 96, tier2: 83 },
+      "2047": { tier1: 99, tier2: 86 },
+      "2048": { tier1: 100, tier2: 89 },
+      "2049": { tier1: 100, tier2: 92 },
+      "2050": { tier1: 100, tier2: 95 }
+    };
+
+    // 页面加载完成后执行
+    document.addEventListener('DOMContentLoaded', function() {
+      // 应用数据
+      const appData = {
+        fuelMix: [],
+        carbonPrice: 100,
+        yearlyResults: [],
+        tier1Reduction: 20,
+        tier2Reduction: 10,
+        gfi2008: 93.3,
+        du1Prices: {},
+        du2Prices: {},
+        suPrices: {}
+      };
+
+      // 初始化年份选择器
+      function initYearSelectors() {
+        const startYearSelect = document.getElementById('start-year');
+        const endYearSelect = document.getElementById('end-year');
+        const summaryYearSelect = document.getElementById('summary-year');
+
+        // 清空现有选项
+        startYearSelect.innerHTML = '';
+        endYearSelect.innerHTML = '';
+        summaryYearSelect.innerHTML = '';
+
+        // 添加2028-2050年的选项
+        for (let year = 2028; year <= 2050; year++) {
+          const option = document.createElement('option');
+          option.value = year;
+          option.textContent = year;
+
+          startYearSelect.appendChild(option.cloneNode(true));
+          endYearSelect.appendChild(option.cloneNode(true));
+          summaryYearSelect.appendChild(option.cloneNode(true));
+        }
+
+        // 设置默认值
+        startYearSelect.value = 2028;
+        endYearSelect.value = 2032;
+        summaryYearSelect.value = 2028;
+      }
+
+      // 初始化DU1、DU2和SU价格（2028-2050年）
+      function initPrices() {
+        const startYear = 2028, endYear = 2050;
+        for (let year = startYear; year <= endYear; year++) {
+          if (year <= 2030) {
+            appData.du1Prices[year] = 100;
+            appData.du2Prices[year] = 380;
+            appData.suPrices[year] = 100;
+          } else {
+            const factor = Math.pow(1.05, year - 2030);
+            appData.du1Prices[year] = 100 * factor;
+            appData.du2Prices[year] = 380 * factor;
+            appData.suPrices[year] = 100 * factor;
+          }
+        }
+      }
+
+      // 初始化价格数据和年份选择器
+      initPrices();
+      initYearSelectors();
+
+      // 图表初始化
+      let emissionChart = null;
+      let complianceChart = null;
+
+      // 燃料类型变化时自动更新低位热值和排放因子
+      document.getElementById('fuel-type').addEventListener('change', function() {
+        const fuelType = this.value;
+        const fuelData = fuelTypeData[fuelType];
+
+        if (fuelData) {
+          document.getElementById('fuel-lhv').value = fuelData.lhv;
+          document.getElementById('fuel-ef').value = fuelData.ef;
+        }
+      });
+
+      // 更新燃料混合表格
+      function updateFuelMixTable() {
+        const tableBody = document.getElementById('fuel-mix-table');
+        tableBody.innerHTML = '';
+
+        // 计算总份额
+        const totalShare = appData.fuelMix.reduce((sum, fuel) => sum + fuel.share, 0);
+
+        appData.fuelMix.forEach((fuel, index) => {
+          const row = tableBody.insertRow();
+          const rewardMultiplier = fuel.reward || 1.0;
+          const rewardClass = rewardMultiplier > 1.5 ? 'text-green-600 font-bold' :
+                              rewardMultiplier > 1.2 ? 'text-blue-600' : 'text-gray-600';
+
+          row.innerHTML = `
+            <td class="px-6 py-4 whitespace-nowrap">${fuel.type}</td>
+            <td class="px-6 py-4 whitespace-nowrap">${fuel.share}%</td>
+            <td class="px-6 py-4 whitespace-nowrap">${fuel.lhv}</td>
+            <td class="px-6 py-4 whitespace-nowrap">${fuel.ef}</td>
+            <td class="px-6 py-4 whitespace-nowrap ${rewardClass}" title="奖励倍数越高，目标强度调整后越低">
+              ${rewardMultiplier.toFixed(2)}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-right">
+              <button class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm" data-index="${index}">
+                删除
+              </button>
+            </td>
+          `;
+        });
+
+        // 添加总计行
+        if (appData.fuelMix.length > 0) {
+          const totalRow = tableBody.insertRow();
+          totalRow.className = 'bg-gray-50 font-semibold';
+          totalRow.innerHTML = `
+            <td class="px-6 py-4 whitespace-nowrap">总计</td>
+            <td class="px-6 py-4 whitespace-nowrap">${totalShare}%</td>
+            <td class="px-6 py-4 whitespace-nowrap">-</td>
+            <td class="px-6 py-4 whitespace-nowrap">-</td>
+            <td class="px-6 py-4 whitespace-nowrap">-</td>
+            <td class="px-6 py-4 whitespace-nowrap text-right">-</td>
+          `;
+        }
+      }
+
+      // 计算加权奖励倍数
+      function computeWeightedRewardMultiplier() {
+        let totalZNZShare = 0;
+        let weightedReward = 0;
+
+        appData.fuelMix.forEach(fuel => {
+            if (fuel.reward > 1.0) { // 只计算ZNZ燃料
+                totalZNZShare += fuel.share;
+                weightedReward += (fuel.reward - 1) * fuel.share; // 使用(φ_i - 1) × S_i公式
+            }
+        });
+
+        // 只有当ZNZ份额≥5%时才应用奖励
+        if (totalZNZShare < 5) {
+            return 1.0;
+        }
+
+        // 计算有效奖励系数 (1 + Σ(φ_i - 1) × S_i)
+        let effectiveReward = 1 + weightedReward / 100;
+
+        // 最高奖励系数不超过2.0
+        return Math.min(effectiveReward, 2.0);
+      }
+
+      // 更新ZNZ份额显示
+      function updateZNZShare() {
+        let znzShare = 0;
+        appData.fuelMix.forEach(fuel => {
+            if (fuel.reward > 1.0) { // 只计算ZNZ燃料
+                znzShare += fuel.share;
+            }
+        });
+
+        const znzShareInput = document.getElementById('znz-share');
+        const znzHint = document.getElementById('znz-threshold-hint');
+        znzShareInput.value = znzShare.toFixed(1);
+
+        // 添加阈值提示
+        if (znzShare > 0 && znzShare < 5) {
+            znzShareInput.title = "ZNZ燃料份额不足5%，不适用奖励机制";
+            znzShareInput.classList.add('text-yellow-600');
+            znzHint.style.display = 'block';
+        } else {
+            znzShareInput.title = "";
+            znzShareInput.classList.remove('text-yellow-600');
+            znzHint.style.display = 'none';
+        }
+      }
+
+      // 添加燃料到表格
+      document.getElementById('add-fuel').addEventListener('click', function() {
+        const fuelType = document.getElementById('fuel-type').value;
+        const fuelShare = parseFloat(document.getElementById('fuel-share').value);
+        const fuelLhv = parseFloat(document.getElementById('fuel-lhv').value);
+        const fuelEf = parseFloat(document.getElementById('fuel-ef').value);
+
+        // 检查份额总和是否超过100%
+        const currentTotalShare = appData.fuelMix.reduce((sum, fuel) => sum + fuel.share, 0);
+        const fuelShareInput = document.getElementById('fuel-share');
+
+        if (currentTotalShare + fuelShare > 100) {
+          alert('燃料份额总和不能超过100%');
+          return;
+        }
+
+        // 获取燃料数据
+        const fuelData = fuelTypeData[fuelType] || {};
+
+        // 添加到数据模型
+        appData.fuelMix.push({
+          type: fuelType,
+          share: fuelShare,
+          lhv: fuelData.lhv || fuelLhv,
+          ef: fuelData.ef || fuelEf,
+          reward: fuelData.reward || 1.0
+        });
+
+        // 更新表格
+        updateFuelMixTable();
+
+        // 更新ZNZ份额显示
+        updateZNZShare();
+      });
+
+      // 移除燃料
+      document.getElementById('fuel-mix-table').addEventListener('click', function(e) {
+        if (e.target.classList.contains('bg-red-500')) {
+          const index = parseInt(e.target.getAttribute('data-index'));
+          appData.fuelMix.splice(index, 1);
+          updateFuelMixTable();
+          updateZNZShare();
+        }
+      });
+
+      // 计算合规信息
+      function calculateComplianceInfo(complianceGap, tierIntensity, appData, year, rewardMultiplier = 1) {
+        // 获取年度减排率
+        const hasYear = year && reductionFactors[year];
+        const tier1Reduction = hasYear ? reductionFactors[year].tier1 : appData.tier1Reduction;
+        const tier2Reduction = hasYear ? reductionFactors[year].tier2 : appData.tier2Reduction;
+
+        // 计算 DU 分界门槛
+        const GFI_TD = (1 - tier1Reduction / 100) * appData.gfi2008;
+        const GFI_TB = (1 - tier2Reduction / 100) * appData.gfi2008;
+        const DU_Threshold = GFI_TB - GFI_TD;
+
+        let complianceType;
+        let du1Requirement = 0, du2Requirement = 0, suReward = 0;
+
+        if (tierIntensity <= 0) tierIntensity = 1; // 安全保障
+
+        if (complianceGap < 0) {
+          complianceType = '完全合规';
+          suReward = (-complianceGap / tierIntensity) * 1000 * rewardMultiplier;
+        } else if (complianceGap <= DU_Threshold) {
+          complianceType = '部分合规';
+          du1Requirement = (complianceGap / tierIntensity) * 1000;
+        } else {
+          complianceType = '不合规';
+          du2Requirement = (complianceGap / tierIntensity) * 1000;
+        }
+
+        return {
+          complianceType,
+          du1Requirement,
+          du2Requirement,
+          suReward
+        };
+      }
+
+      // 更新摘要显示
+      function updateSummaryForYear(year) {
+        // 查找对应年份的结果
+        const result = appData.yearlyResults.find(r => r.year === parseInt(year));
+        if (!result) {
+          console.error('未找到该年份的结果:', year);
+          return;
+        }
+
+        // 更新显示
+        document.getElementById('tier1-intensity').textContent =
+          `${result.tier1Intensity.toFixed(1)} gCO₂eq/MJ`;
+        document.getElementById('tier2-intensity').textContent =
+          `${result.tier2Intensity.toFixed(1)} gCO₂eq/MJ`;
+        document.getElementById('actual-intensity').textContent =
+          `${result.actualIntensity.toFixed(1)} gCO₂eq/MJ`;
+
+        const complianceStatus = result.complianceGap < 0 ? '超额合规' :
+                               (result.complianceGap === 0 ? '正好合规' : '未达标');
+        document.getElementById('compliance-type-status').textContent =
+          `${result.complianceType}（${complianceStatus}）`;
+        document.getElementById('compliance-gap').textContent =
+          `${result.complianceGap.toFixed(1)} gCO₂eq/MJ`;
+        document.getElementById('compliance-cost').textContent =
+          `$${result.complianceCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+
+        let duSuStatus = '';
+        if (result.suReward > 0) {
+          duSuStatus = `获得SU奖励 ${result.suReward.toFixed(1)} 吨 (奖励倍数: ${result.rewardMultiplier.toFixed(2)})`;
+        } else if (result.du1Requirement > 0 || result.du2Requirement > 0) {
+          duSuStatus = `需要DU补偿 ${result.du1Requirement > 0 ? `DU1: ${result.du1Requirement.toFixed(1)} 吨` : ''}${result.du1Requirement > 0 && result.du2Requirement > 0 ? '，' : ''}${result.du2Requirement > 0 ? `DU2: ${result.du2Requirement.toFixed(1)} 吨` : ''}`;
+          if (result.suUsedForDU > 0) {
+            duSuStatus += ` (已用SU抵扣: ${result.suUsedForDU.toFixed(1)} SU)`;
+          }
+        } else {
+          duSuStatus = '无补偿或奖励';
+        }
+        document.getElementById('du-su-status').textContent = duSuStatus;
+      }
+
+      // 计算碳排放结果
+      function calculate() {
+        const gfi2008 = parseFloat(document.getElementById('gfi-2008').value);
+        const znzShare = parseFloat(document.getElementById('znz-share').value);
+        const znzIntensity = parseFloat(document.getElementById('znz-intensity').value);
+        const totalEnergy = parseFloat(document.getElementById('total-energy').value);
+        const startYear = parseInt(document.getElementById('start-year').value);
+        const endYear = parseInt(document.getElementById('end-year').value);
+
+        if ([gfi2008, znzShare, znzIntensity, totalEnergy, startYear, endYear].some(isNaN)) {
+          alert('请输入有效的数字！');
+          return;
+        }
+
+        if (startYear > endYear) {
+          alert('起始年份不能大于结束年份！');
+          return;
+        }
+
+        // 更新应用数据
+        appData.gfi2008 = gfi2008;
+
+        const weightedIntensity = appData.fuelMix.length > 0
+          ? appData.fuelMix.reduce((sum, fuel) => sum + (fuel.ef * fuel.share / 100), 0)
+          : fuelTypeData.HFO.ef;
+
+        const actualIntensity = (1 - znzShare / 100) * weightedIntensity + (znzShare / 100) * znzIntensity;
+
+        document.getElementById('actual-intensity').textContent = `${actualIntensity.toFixed(1)} gCO₂eq/MJ`;
+
+        let suBank = {};
+        let cumulativeCost = 0;
+        appData.yearlyResults = [];
+
+        const weightedRewardMultiplier = computeWeightedRewardMultiplier();
+
+        for (let year = startYear; year <= endYear; year++) {
+          const tier1Intensity = appData.gfi2008 * (1 - reductionFactors[year].tier1 / 100);
+          const tier2Intensity = appData.gfi2008 * (1 - reductionFactors[year].tier2 / 100);
+
+          // 使用Tier 2进行合规计算（更严格）
+          const complianceInfo = calculateComplianceInfo(
+            actualIntensity - tier2Intensity,
+            tier2Intensity,
+            appData,
+            year,
+            weightedRewardMultiplier
+          );
+
+          let complianceType = complianceInfo.complianceType;
+          let du1 = complianceInfo.du1Requirement;
+          let du2 = complianceInfo.du2Requirement;
+          let su = complianceInfo.suReward;
+
+          let suUsed = 0;
+          const enableSUtoDU = document.getElementById('enable-su-to-du')?.checked;
+
+          // 处理SU银行中的过期SU（超过2年）
+          const expiredSUYears = Object.keys(suBank).filter(y => parseInt(y) < year - 2);
+          expiredSUYears.forEach(y => {
+            delete suBank[y];
+          });
+
+          // 如果有SU奖励，增加到SU银行
+          if (su > 0) {
+            suBank[year] = (suBank[year] || 0) + su;
+          }
+
+          // 使用SU抵扣DU（1:1比例）
+          if (enableSUtoDU && (du1 > 0 || du2 > 0)) {
+            // 按照年份顺序使用最早的SU
+            const sortedSUYears = Object.keys(suBank).sort((a, b) => parseInt(a) - parseInt(b));
+
+            for (const suYear of sortedSUYears) {
+              if (du1 > 0 || du2 > 0) {
+                const availableSU = suBank[suYear];
+                if (availableSU > 0) {
+                  const suToUse = Math.min(availableSU, du1 + du2);
+                  suUsed += suToUse;
+                  suBank[suYear] -= suToUse;
+
+                  // 优先抵扣DU1
+                  const du1Deducted = Math.min(du1, suToUse);
+                  du1 -= du1Deducted;
+                  du2 -= (suToUse - du1Deducted);
+                }
+              }
+            }
+          }
+
+          // 清理空的SU银行条目
+          Object.keys(suBank).forEach(y => {
+            if (suBank[y] <= 0) {
+              delete suBank[y];
+            }
+          });
+
+          const duBorrowed = du1 + du2 > 0 ? du1 + du2 : 0;
+          const du1Price = appData.du1Prices[year] || 100;
+          const du2Price = appData.du2Prices[year] || 380;
+          const suPrice = appData.suPrices[year] || 100;
+
+          // 计算合规成本（SU奖励产生负成本）
+          let complianceCost = 0;
+          if (actualIntensity < tier2Intensity) {
+            // 超额合规，产生SU奖励（负成本）
+            complianceCost = -su * suPrice;
+          } else {
+            // 需要购买DU
+            complianceCost = (du1 * du1Price) + (du2 * du2Price);
+          }
+
+          cumulativeCost += complianceCost;
+
+          appData.yearlyResults.push({
+            year,
+            tier1Intensity,
+            tier2Intensity,
+            actualIntensity,
+            complianceType,
+            du1Requirement: du1,
+            du2Requirement: du2,
+            suReward: su,
+            suUsedForDU: suUsed,
+            duBorrowed,
+            complianceCost,
+            cumulativeCost,
+            rewardMultiplier: weightedRewardMultiplier,
+            suBank: {...suBank},
+            complianceGap: actualIntensity - tier2Intensity
+          });
+        }
+
+        // 更新摘要显示为起始年份
+        updateSummaryForYear(startYear);
+
+        // 更新年度结果表格
+        updateYearlyResultsTable();
+        updateCharts();
+        generateCalculationSteps();
+        generateRecommendations();
+      }
+
+      // 更新年度结果表格
+      function updateYearlyResultsTable() {
+        const tableBody = document.getElementById('yearly-results');
+        tableBody.innerHTML = '';
+
+        appData.yearlyResults.forEach(result => {
+          const row = tableBody.insertRow();
+          let rowClass = '';
+          if (result.complianceType === '完全合规') rowClass = 'bg-green-50';
+          else if (result.complianceType === '部分合规') rowClass = 'bg-yellow-50';
+          else rowClass = 'bg-red-50';
+          row.className = rowClass;
+
+          row.innerHTML = `
+            <td class="px-6 py-4 whitespace-nowrap font-medium">${result.year}</td>
+            <td class="px-6 py-4 whitespace-nowrap">${result.tier1Intensity.toFixed(1)}</td>
+            <td class="px-6 py-4 whitespace-nowrap">${result.tier2Intensity.toFixed(1)}</td>
+            <td class="px-6 py-4 whitespace-nowrap">${result.actualIntensity.toFixed(1)}</td>
+            <td class="px-6 py-4 whitespace-nowrap">${result.complianceType}</td>
+            <td class="px-6 py-4 whitespace-nowrap">${result.du1Requirement > 0 ? result.du1Requirement.toFixed(1) : '-'}</td>
+            <td class="px-6 py-4 whitespace-nowrap">${result.du2Requirement > 0 ? result.du2Requirement.toFixed(1) : '-'}</td>
+            <td class="px-6 py-4 whitespace-nowrap">${result.duBorrowed > 0 ? result.duBorrowed.toFixed(1) : '-'}</td>
+            <td class="px-6 py-4 whitespace-nowrap">${result.suReward > 0 ? result.suReward.toFixed(1) : '-'} ${result.suUsedForDU > 0 ? `(抵扣: ${result.suUsedForDU.toFixed(1)})` : ''}</td>
+            <td class="px-6 py-4 whitespace-nowrap">$${result.complianceCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+            <td class="px-6 py-4 whitespace-nowrap">$${result.cumulativeCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+          `;
+        });
+      }
+
+      // 初始化图表
+      function initCharts() {
+        const emissionCtx = document.getElementById('emissionChart').getContext('2d');
+        const complianceCtx = document.getElementById('complianceChart').getContext('2d');
+
+        emissionChart = new Chart(emissionCtx, {
+          type: 'line',
+          data: {
+            labels: [],
+            datasets: [
+              { label: 'GFI 2008 基准', data: [], borderColor: '#555', borderWidth: 2, fill: false },
+              { label: 'Tier 1强度', data: [], borderColor: '#f97316', borderDash: [5, 5], borderWidth: 2, fill: false },
+              { label: 'Tier 2强度', data: [], borderColor: '#e11d48', borderDash: [5, 5], borderWidth: 2, fill: false },
+              { label: '实际强度', data: [], borderColor: '#3b82f6', borderWidth: 2, fill: false }
+            ]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: { position: 'top' },
+              title: { display: true, text: '年度碳强度趋势对比' }
+            },
+            scales: {
+              y: {
+                title: { display: true, text: 'gCO₂eq/MJ' }
+              }
+            }
+          }
+        });
+
+        complianceChart = new Chart(complianceCtx, {
+          type: 'bar',
+          data: {
+            labels: [],
+            datasets: [
+              {
+                label: 'DU1 (轻度)',
+                data: [],
+                backgroundColor: '#FFAA00',
+              },
+              {
+                label: 'DU2 (严重)',
+                data: [],
+                backgroundColor: '#F53F3F',
+              },
+              {
+                label: 'SU抵扣量',
+                data: [],
+                backgroundColor: '#B0E57C',
+              },
+              {
+                label: 'DU借用',
+                data: [],
+                backgroundColor: '#999999',
+              },
+              {
+                label: 'SU奖励',
+                data: [],
+                backgroundColor: '#7CB305',
+              },
+              {
+                label: '合规成本 (USD)',
+                data: [],
+                backgroundColor: '#165DFF',
+                yAxisID: 'y1',
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: { position: 'top' },
+              title: { display: true, text: '年度合规情况统计' }
+            },
+            scales: {
+              y: {
+                beginAtZero: true,
+                title: { display: true, text: '吨 / 奖励单位' }
+              },
+              y1: {
+                beginAtZero: false, // 允许负值
+                position: 'right',
+                grid: { drawOnChartArea: false },
+                title: { display: true, text: '成本 (USD)' }
+              }
+            }
+          }
+        });
+      }
+
+      // 更新图表
+      function updateCharts() {
+        if (!emissionChart) initCharts();
+
+        const years = appData.yearlyResults.map(r => r.year);
+        const baselineData = appData.yearlyResults.map(r => appData.gfi2008);
+        const tier1Data = appData.yearlyResults.map(r => r.tier1Intensity);
+        const tier2Data = appData.yearlyResults.map(r => r.tier2Intensity);
+        const actualData = appData.yearlyResults.map(r => r.actualIntensity);
+
+        emissionChart.data.labels = years;
+        emissionChart.data.datasets[0].data = baselineData;
+        emissionChart.data.datasets[1].data = tier1Data;
+        emissionChart.data.datasets[2].data = tier2Data;
+        emissionChart.data.datasets[3].data = actualData;
+        emissionChart.update();
+
+        // 更新合规图表
+        complianceChart.data.labels = years;
+        complianceChart.data.datasets = [
+          {
+            label: 'DU1 (轻度)',
+            data: appData.yearlyResults.map(r => r.du1Requirement),
+            backgroundColor: '#FFAA00',
+          },
+          {
+            label: 'DU2 (严重)',
+            data: appData.yearlyResults.map(r => r.du2Requirement),
+            backgroundColor: '#F53F3F',
+          },
+          {
+            label: 'SU抵扣量',
+            data: appData.yearlyResults.map(r => r.suUsedForDU || 0),
+            backgroundColor: '#B0E57C',
+          },
+          {
+            label: 'DU借用',
+            data: appData.yearlyResults.map(r => r.duBorrowed),
+            backgroundColor: '#999999',
+          },
+          {
+            label: 'SU奖励',
+            data: appData.yearlyResults.map(r => r.suReward),
+            backgroundColor: '#7CB305',
+          },
+          {
+            label: '合规成本 (USD)',
+            data: appData.yearlyResults.map(r => r.complianceCost),
+            backgroundColor: '#165DFF',
+            yAxisID: 'y1',
+          }
+        ];
+        complianceChart.update();
+      }
+
+      // 生成计算步骤
+      function generateCalculationSteps() {
+        const stepsContainer = document.getElementById('calculation-steps');
+        stepsContainer.innerHTML = '';
+
+        const rewardMultiplier = computeWeightedRewardMultiplier();
+        const znzShare = parseFloat(document.getElementById('znz-share').value);
+        const totalEnergy = parseFloat(document.getElementById('total-energy').value);
+        const znzIntensity = parseFloat(document.getElementById('znz-intensity').value);
+        const baselineIntensity = appData.gfi2008;
+        const currentYear = parseInt(document.getElementById('summary-year').value);
+
+        const weightedIntensity = appData.fuelMix.length > 0
+          ? appData.fuelMix.reduce((sum, fuel) => sum + fuel.ef * fuel.share / 100, 0)
+          : fuelTypeData.HFO.ef;
+        const actualIntensity = (1 - znzShare / 100) * weightedIntensity + (znzShare / 100) * znzIntensity;
+
+        // 获取当前年份的减排率
+        const tier1Reduction = reductionFactors[currentYear] ? reductionFactors[currentYear].tier1 : 20;
+        const tier2Reduction = reductionFactors[currentYear] ? reductionFactors[currentYear].tier2 : 10;
+        const tier1Intensity = baselineIntensity * (1 - tier1Reduction / 100);
+        const tier2Intensity = baselineIntensity * (1 - tier2Reduction / 100);
+        const complianceGap = actualIntensity - tier2Intensity;
+
+        const du1Price = appData.du1Prices[currentYear] || 100;
+        const du2Price = appData.du2Prices[currentYear] || 380;
+        const suPrice = appData.suPrices[currentYear] || 100;
+        const complianceCost = complianceGap < 0
+          ? -(-complianceGap / tier2Intensity * 1000 * suPrice * rewardMultiplier)
+          : (complianceGap / tier2Intensity * 1000 * (complianceGap <= 0.01 ? du1Price : du2Price));
+
+        function createStepCard(index, title, formula, result) {
+          const card = document.createElement('div');
+          card.className = `bg-white shadow border-l-4 p-4 rounded-lg mb-4 border-blue-${index * 100}`;
+          card.innerHTML = `
+            <h3 class="font-semibold text-lg mb-2">步骤${index}: ${title}</h3>
+            <p class="text-sm text-gray-700 mb-1">${formula}</p>
+            <p class="text-sm text-blue-600 font-bold">结果: ${result}</p>
+          `;
+          return card;
+        }
+
+        stepsContainer.appendChild(createStepCard(
+          1,
+          '计算燃料混合的加权平均排放强度',
+          `∑(每种燃料份额 × 排放因子) = ${appData.fuelMix.map(fuel => `${fuel.share}% × ${fuel.ef}`).join(' + ') || '未添加燃料，默认使用 HFO 的排放因子'}`,
+          `${weightedIntensity.toFixed(1)} gCO₂eq/MJ`
+        ));
+
+        stepsContainer.appendChild(createStepCard(
+          2,
+          '考虑ZNZ燃料的影响',
+          `(1 - ZNZ份额) × 加权强度 + ZNZ份额 × ZNZ排放因子 = (1 - ${znzShare}%) × ${weightedIntensity.toFixed(1)} + ${znzShare}% × ${znzIntensity}`,
+          `${actualIntensity.toFixed(1)} gCO₂eq/MJ`
+        ));
+
+        // 添加ZNZ奖励系数计算步骤
+        if (znzShare >= 5) {
+          stepsContainer.appendChild(createStepCard(
+            3,
+            '计算加权奖励倍数',
+            `1 + Σ(奖励倍数 - 1) × 份额 = 1 + ${appData.fuelMix.filter(f => f.reward > 1).map(f => `(${f.reward.toFixed(2)} - 1) × ${f.share}%`).join(' + ')}`,
+            `${rewardMultiplier.toFixed(2)}x (最高不超过2.0)`
+          ));
+        } else if (znzShare > 0) {
+          stepsContainer.appendChild(createStepCard(
+            3,
+            'ZNZ燃料份额不足',
+            `ZNZ燃料份额 ${znzShare}% < 5%，不适用奖励机制`,
+            `奖励倍数: 1.0`
+          ));
+        } else {
+          stepsContainer.appendChild(createStepCard(
+            3,
+            '无ZNZ燃料',
+            `未使用ZNZ燃料，不适用奖励机制`,
+            `奖励倍数: 1.0`
+          ));
+        }
+
+        stepsContainer.appendChild(createStepCard(
+          4,
+          '计算Tier 1强度',
+          `GFI 2008 × (1 - Tier 1减排率) = ${baselineIntensity.toFixed(1)} × (1 - ${tier1Reduction}%)`,
+          `${tier1Intensity.toFixed(1)} gCO₂eq/MJ`
+        ));
+
+        stepsContainer.appendChild(createStepCard(
+          5,
+          '计算Tier 2强度',
+          `GFI 2008 × (1 - Tier 2减排率) = ${baselineIntensity.toFixed(1)} × (1 - ${tier2Reduction}%)`,
+          `${tier2Intensity.toFixed(1)} gCO₂eq/MJ`
+        ));
+
+        stepsContainer.appendChild(createStepCard(
+          6,
+          '计算合规缺口',
+          `实际强度 - Tier 2强度 = ${actualIntensity.toFixed(1)} - ${tier2Intensity.toFixed(1)}`,
+          `${complianceGap.toFixed(1)} gCO₂eq/MJ`
+        ));
+
+        stepsContainer.appendChild(createStepCard(
+          7,
+          '计算合规成本',
+          complianceGap < 0
+            ? `SU奖励 × SU价格 = ${(-complianceGap / tier2Intensity * 1000 * rewardMultiplier).toFixed(1)} × ${suPrice}`
+            : `DU需求 × DU价格 = ${(complianceGap / tier2Intensity * 1000).toFixed(1)} × ${complianceGap <= 0.01 ? du1Price : du2Price}`,
+          `$${complianceCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+        ));
+      }
+
+      // 生成分析建议
+      function generateRecommendations() {
+        const recommendationsContainer = document.getElementById('recommendations');
+        recommendationsContainer.innerHTML = '';
+
+        // 获取关键计算结果
+        const actualIntensity = parseFloat(document.getElementById('actual-intensity').textContent);
+        const tier1Intensity = parseFloat(document.getElementById('tier1-intensity').textContent);
+        const tier2Intensity = parseFloat(document.getElementById('tier2-intensity').textContent);
+        const complianceType = document.getElementById('compliance-type-status').textContent;
+        const totalEnergy = parseFloat(document.getElementById('total-energy').value);
+        const complianceGap = actualIntensity - tier2Intensity;
+        const rewardMultiplier = computeWeightedRewardMultiplier();
+        const znzShare = parseFloat(document.getElementById('znz-share').value);
+
+        // 分析燃料混合
+        const fuelMixAnalysis = appData.fuelMix.map(fuel => ({
+          type: fuel.type,
+          share: fuel.share,
+          ef: fuel.ef,
+          reward: fuel.reward,
+          contribution: fuel.ef * fuel.share / 100
+        })).sort((a, b) => b.contribution - a.contribution);
+
+        // 查找最主要的高排放燃料
+        const highEmissionFuels = fuelMixAnalysis.filter(fuel => fuel.ef > 80 && fuel.share > 10);
+
+        // 查找当前使用的低排放燃料
+        const currentLowEmissionFuels = appData.fuelMix.filter(fuel => fuel.reward > 1.0);
+
+        // 定义创建建议卡片的函数
+        function createRecommendationCard(className, title, content) {
+          const card = document.createElement('div');
+          card.className = className;
+          card.innerHTML = `
+            <h3 class="font-semibold ${title.color} mb-2">${title.text}</h3>
+            <p class="${content.color}">${content.text}</p>
+          `;
+          return card;
+        }
+
+        // 基础建议
+        const baseRecommendations = createRecommendationCard(
+          'bg-blue-50 p-4 rounded-lg border-l-4 border-blue-500 mb-4',
+          { color: 'text-blue-800', text: '基础建议' },
+          { color: 'text-blue-700', text: `基于您的船舶当前碳排放情况(奖励倍数: ${rewardMultiplier.toFixed(2)})，我们提供以下建议以帮助您提高合规性：` }
+        );
+        recommendationsContainer.appendChild(baseRecommendations);
+
+        // ZNZ燃料份额建议
+        if (znzShare > 0 && znzShare < 5) {
+          const znzRec = createRecommendationCard(
+            'bg-yellow-50 p-4 rounded-lg border-l-4 border-yellow-500 mb-4',
+            { color: 'text-yellow-800', text: '增加ZNZ燃料份额' },
+            { color: 'text-yellow-700', text: `当前ZNZ燃料份额为${znzShare}%，不足5%阈值，无法获得奖励。建议增加ZNZ燃料比例至至少5%以获得奖励机制。` }
+          );
+          recommendationsContainer.appendChild(znzRec);
+        }
+
+        // 合规类型相关建议
+        let complianceRec;
+        if (complianceType.includes('完全合规')) {
+          complianceRec = createRecommendationCard(
+            'bg-green-50 p-4 rounded-lg border-l-4 border-green-500 mb-4',
+            { color: 'text-green-800', text: '保持良好表现' },
+            { color: 'text-green-700', text: `您的船舶目前完全符合碳排放要求，这是非常优秀的表现。建议继续保持当前的燃料策略和运营方式。
+            <p class="text-green-700 mt-2">考虑进一步提高零碳燃料的使用比例，以减少未来的合规风险。</p>
+            <p class="text-green-700">您已获得碳优势单位（SU），可用于未来合规抵扣或交易。</p>` }
+          );
+        } else if (complianceType.includes('部分合规')) {
+          complianceRec = createRecommendationCard(
+            'bg-yellow-50 p-4 rounded-lg border-l-4 border-yellow-500 mb-4',
+            { color: 'text-yellow-800', text: '提高合规性' },
+            { color: 'text-yellow-700', text: `您的船舶目前部分符合碳排放要求，存在一定的合规缺口。建议采取以下措施：
+            <ul class="list-disc pl-5 mt-2 space-y-1 text-yellow-700">
+              <li>增加低排放燃料的使用比例</li>
+              <li>优化船舶运营方式，提高能源效率</li>
+              <li>了解并使用 DU 补救机制以弥补合规缺口</li>
+            </ul>` }
+          );
+        } else {
+          complianceRec = createRecommendationCard(
+            'bg-red-50 p-4 rounded-lg border-l-4 border-red-500 mb-4',
+            { color: 'text-red-800', text: '紧急减排措施' },
+            { color: 'text-red-700', text: `您的船舶目前不符合碳排放要求，存在较大的合规缺口。建议立即采取以下措施：
+            <ul class="list-disc pl-5 mt-2 space-y-1 text-red-700">
+              <li>大幅增加低排放或零碳燃料的使用比例</li>
+              <li>考虑船舶动力系统升级改造</li>
+              <li>优化航线规划，减少不必要的碳排放</li>
+              <li>评估 DU 成本与升级减排措施之间的经济性</li>
+            </ul>` }
+          );
+        }
+        recommendationsContainer.appendChild(complianceRec);
+
+        // 燃料混合相关建议
+        if (highEmissionFuels.length > 0) {
+          let fuelRecContent = `您的燃料混合中包含高排放燃料，建议考虑以下替代方案：
+          <ul class="list-disc pl-5 mt-2 space-y-1 text-purple-700">
+            ${highEmissionFuels.map(fuel => `
+              <li>${fuel.type} (排放因子: ${fuel.ef} gCO₂eq/MJ) 占比 ${fuel.share}%，是碳排放的主要来源</li>
+            `).join('')}`;
+
+          if (currentLowEmissionFuels.length > 0) {
+            fuelRecContent += `
+              <li class="mt-2">可考虑增加以下低排放燃料的比例：
+                <ul class="list-circle pl-5 mt-1 space-y-1">
+                  ${currentLowEmissionFuels.map(fuel => `
+                    <li>${fuel.type} (排放因子: ${fuel.ef} gCO₂eq/MJ, 奖励倍数: ${fuel.reward.toFixed(2)})</li>
+                  `).join('')}
+                </ul>
+              </li>`;
+          }
+          fuelRecContent += '</ul>';
+
+          const fuelRec = createRecommendationCard(
+            'bg-purple-50 p-4 rounded-lg border-l-4 border-purple-500 mb-4',
+            { color: 'text-purple-800', text: '燃料混合优化' },
+            { color: 'text-purple-700', text: fuelRecContent }
+          );
+          recommendationsContainer.appendChild(fuelRec);
+        }
+
+        // 低排放燃料使用建议
+        if (currentLowEmissionFuels.length > 0) {
+          const lowEmissionRecContent = `您已经使用了一些低排放燃料，建议进一步增加其使用比例：
+          <ul class="list-disc pl-5 mt-2 space-y-1 text-teal-700">
+            ${currentLowEmissionFuels.map(fuel => `
+              <li>${fuel.type} (排放因子: ${fuel.ef} gCO₂eq/MJ, 奖励倍数: ${fuel.reward.toFixed(2)}) 目前占比 ${fuel.share}%</li>
+            `).join('')}
+            <li class="mt-2">考虑将低排放燃料比例提高到至少50%，以显著降低碳排放并获得更多奖励</li>
+          </ul>`;
+
+          const lowEmissionRec = createRecommendationCard(
+            'bg-teal-50 p-4 rounded-lg border-l-4 border-teal-500 mb-4',
+            { color: 'text-teal-800', text: '增加低排放燃料使用' },
+            { color: 'text-teal-700', text: lowEmissionRecContent }
+          );
+          recommendationsContainer.appendChild(lowEmissionRec);
+        }
+
+        // 长期规划建议
+        const longTermRecContent = `为应对未来更严格的碳排放要求，建议制定长期减排规划：
+        <ul class="list-disc pl-5 mt-2 space-y-1 text-indigo-700">
+          <li>评估船舶改造或更换为零排放动力系统的可行性</li>
+          <li>建立碳排放监测系统，实时跟踪和优化排放表现</li>
+          <li>考虑参与碳捕捉和封存(CCS)技术研发或应用</li>
+          <li>关注国际海事组织和各国政府的最新政策动态</li>
+        </ul>`;
+
+        const longTermRec = createRecommendationCard(
+          'bg-indigo-50 p-4 rounded-lg border-l-4 border-indigo-500',
+          { color: 'text-indigo-800', text: '长期减排规划' },
+          { color: 'text-indigo-700', text: longTermRecContent }
+        );
+        recommendationsContainer.appendChild(longTermRec);
+      }
+
+      // 重置所有参数
+      document.getElementById('reset-all').addEventListener('click', function() {
+        // 重置表单
+        document.getElementById('fuel-type').value = 'HFO';
+        document.getElementById('fuel-share').value = 40;
+        document.getElementById('fuel-lhv').value = 40.4;
+        document.getElementById('fuel-ef').value = 94.0;
+        document.getElementById('gfi-2008').value = 93.3;
+        document.getElementById('znz-share').value = 0;
+        document.getElementById('znz-intensity').value = 10;
+        document.getElementById('total-energy').value = 1000;
+        document.getElementById('start-year').value = 2028;
+        document.getElementById('end-year').value = 2032;
+        document.getElementById('summary-year').value = 2028;
+
+        // 清空燃料混合
+        appData.fuelMix = [];
+        updateFuelMixTable();
+
+        // 重置结果
+        document.getElementById('tier1-intensity').textContent = '待计算';
+        document.getElementById('tier2-intensity').textContent = '待计算';
+        document.getElementById('actual-intensity').textContent = '待计算';
+        document.getElementById('compliance-type-status').textContent = '待计算';
+        document.getElementById('du-su-status').textContent = '待计算';
+        document.getElementById('compliance-gap').textContent = '待计算';
+        document.getElementById('compliance-cost').textContent = '待计算';
+
+        // 清空年度结果表格
+        document.getElementById('yearly-results').innerHTML = '';
+
+        // 清空分析建议
+        document.getElementById('recommendations').innerHTML = '';
+
+        // 清空计算步骤
+        document.getElementById('calculation-steps').innerHTML = '';
+
+        // 销毁图表
+        if (emissionChart) {
+          emissionChart.destroy();
+          emissionChart = null;
+        }
+
+        // 重新初始化价格数据
+        initPrices();
+      });
+
+      // 帮助模态框控制
+      const helpButton = document.getElementById('help-button');
+      if (helpButton) {
+        helpButton.addEventListener('click', function() {
+          const modal = document.getElementById('help-modal');
+          const modalContent = document.getElementById('modal-content');
+
+          modal.classList.remove('hidden');
+          // 触发重排
+          void modalContent.offsetWidth;
+          modalContent.classList.remove('scale-95', 'opacity-0');
+          modalContent.classList.add('scale-100', 'opacity-100');
+        });
+      }
+
+      document.getElementById('close-help').addEventListener('click', function() {
+        const modal = document.getElementById('help-modal');
+        const modalContent = document.getElementById('modal-content');
+
+        modalContent.classList.remove('scale-100', 'opacity-100');
+        modalContent.classList.add('scale-95', 'opacity-0');
+
+        setTimeout(() => {
+          modal.classList.add('hidden');
+        }, 300);
+      });
+
+      // 点击模态框外部关闭
+      document.getElementById('help-modal').addEventListener('click', function(e) {
+        if (e.target === this) {
+          document.getElementById('close-help').click();
+        }
+      });
+
+      // 添加点击事件监听器
+      document.getElementById('start-calculation').addEventListener('click', calculate);
+
+      // 摘要年份选择器变化事件
+      document.getElementById('summary-year').addEventListener('change', function() {
+        const year = parseInt(this.value);
+        updateSummaryForYear(year);
+      });
+
+      // 初始化图表
+      initCharts();
+    });
+
+    // 页面加载时检查保存的主题
+    document.getElementById('theme-toggle').addEventListener('click', function() {
+      const body = document.body;
+      const icon = this.querySelector('i');
+
+      // 切换暗色主题类
+      body.classList.toggle('dark');
+
+      if (body.classList.contains('dark')) {
+        // 应用暗色主题
+        body.classList.remove('bg-gray-900', 'text-gray-900');
+        body.classList.add('bg-gray-900', 'text-gray-900');
+
+        // 更新卡片样式为暗色主题
+        document.querySelectorAll('.card').forEach(card => {
+          card.classList.remove('bg-white', 'text-gray-900');
+          card.classList.add('bg-gray-800', 'text-gray-900');
+        });
+
+        icon.classList.replace('fa-moon', 'fa-sun');
+        localStorage.setItem('theme', 'dark');
+      } else {
+        // 恢复亮色主题
+        body.classList.remove('bg-gray-900', 'text-gray-100');
+        body.classList.add('bg-gray-100', 'text-gray-900');
+
+        // 恢复卡片样式为亮色主题
+        document.querySelectorAll('.card').forEach(card => {
+          card.classList.remove('bg-gray-800', 'text-gray-100');
+          card.classList.add('bg-white', 'text-gray-900');
+        });
+
+        icon.classList.replace('fa-sun', 'fa-moon');
+        localStorage.setItem('theme', 'light');
+      }
+    });
+  })();
+</script>
+</body>
+</html>
